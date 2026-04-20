@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Freelance Hybrid Tracker</title>
+    <title>Freelance Pro Tracker</title>
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
     <style>
         :root {
             --bg: #f2f2f7; --card: #ffffff; --text: #1c1c1e;
@@ -41,10 +42,13 @@
         .filter-btn.active { background: var(--primary); color: white; border-color: var(--primary); }
 
         .add-section { background: var(--card); padding: 15px; border-radius: 15px; margin: 10px 0 20px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
-        input { width: 100%; padding: 12px; border-radius: 10px; border: 1px solid var(--border); background: var(--bg); color: var(--text); box-sizing: border-box; font-size: 16px; margin-bottom: 10px; }
+        input.new-job { width: 100%; padding: 12px; border-radius: 10px; border: 1px solid var(--border); background: var(--bg); color: var(--text); box-sizing: border-box; font-size: 16px; margin-bottom: 10px; }
         button.add-btn { width: 100%; padding: 12px; border-radius: 10px; border: none; background: var(--primary); color: white; font-weight: bold; }
 
-        .job-container { position: relative; overflow: hidden; margin-bottom: 12px; border-radius: 15px; touch-action: pan-y; }
+        /* 拖拽時的樣式 */
+        .sortable-ghost { opacity: 0.4; background: var(--primary) !important; }
+
+        .job-container { position: relative; overflow: hidden; margin-bottom: 12px; border-radius: 15px; touch-action: none; }
         
         .swipe-bg {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
@@ -59,9 +63,17 @@
             z-index: 2; transition: transform 0.2s ease-out;
             display: flex; flex-direction: column; gap: 8px;
             border-left: 6px solid var(--status-todo);
+            cursor: grab;
         }
 
-        .job-title { font-size: 18px; font-weight: 600; }
+        /* 編輯標題的輸入框樣式 */
+        .edit-input {
+            font-size: 18px; font-weight: 600; background: transparent;
+            border: 1px dashed var(--primary); color: var(--text);
+            width: 100%; padding: 2px 5px; border-radius: 4px;
+        }
+
+        .job-title { font-size: 18px; font-weight: 600; display: block; min-height: 24px; }
         .tag-group { display: flex; gap: 8px; z-index: 10; }
         .tag { padding: 4px 12px; border-radius: 12px; font-size: 12px; font-weight: 500; cursor: pointer; }
         
@@ -87,7 +99,7 @@
     </div>
     
     <div class="add-section">
-        <input type="text" id="jobName" placeholder="輸入 Job 名稱..." onkeypress="if(event.key==='Enter')addJob()">
+        <input type="text" id="jobName" class="new-job" placeholder="輸入 Job 名稱..." onkeypress="if(event.key==='Enter')addJob()">
         <button class="add-btn" onclick="addJob()">新增項目</button>
     </div>
 
@@ -95,13 +107,13 @@
 </div>
 
 <script>
-    let jobs = JSON.parse(localStorage.getItem('f-jobs-v4')) || [];
+    let jobs = JSON.parse(localStorage.getItem('f-jobs-v6')) || [];
     let currentFilter = '全部';
     const workStates = ["未完成", "待確認/修改", "已完成"];
     const payStates = ["未收錢", "已收錢"];
 
     function save() {
-        localStorage.setItem('f-jobs-v4', JSON.stringify(jobs));
+        localStorage.setItem('f-jobs-v6', JSON.stringify(jobs));
         render();
     }
 
@@ -120,7 +132,15 @@
         save();
     }
 
-    // 點擊切換功能
+    // 修改名稱功能
+    function editTitle(id, newName) {
+        const job = jobs.find(j => j.id === id);
+        if (job) {
+            job.name = newName;
+            save();
+        }
+    }
+
     function toggleWork(id) {
         const job = jobs.find(j => j.id === id);
         job.work = (job.work + 1) % workStates.length;
@@ -143,19 +163,14 @@
     function handleEnd(e, id, el) {
         let diff = e.changedTouches[0].clientX - startX;
         el.style.transform = `translateX(0px)`;
-
-        if (diff > 100) { // 右滑刪除
+        if (diff > 100) {
             if(confirm('確定刪除？')) {
                 jobs = jobs.filter(j => j.id !== id);
                 save();
             }
-        } else if (diff < -100) { // 左滑推進
+        } else if (diff < -100) {
             const job = jobs.find(j => j.id === id);
-            if (job.work < 2) {
-                job.work++;
-            } else {
-                job.pay = 1;
-            }
+            if (job.work < 2) job.work++; else job.pay = 1;
             save();
         }
     }
@@ -175,7 +190,7 @@
             const borderCol = job.work === 2 ? '#34c759' : (job.work === 1 ? '#af52de' : '#636366');
 
             return `
-                <div class="job-container">
+                <div class="job-container" data-id="${job.id}">
                     <div class="swipe-bg bg-delete"><span>🗑 刪除</span></div>
                     <div class="swipe-bg bg-next"><span>下一步 ➡️</span></div>
                     <div class="job-card" 
@@ -183,7 +198,7 @@
                          ontouchstart="handleStart(event)"
                          ontouchmove="handleMove(event, this)"
                          ontouchend="handleEnd(event, ${job.id}, this)">
-                        <span class="job-title">${job.name}</span>
+                        <span class="job-title" onclick="makeEditable(this, ${job.id})">${job.name}</span>
                         <div class="tag-group">
                             <span class="tag status-${wStatus.replace('/','-')}" onclick="toggleWork(${job.id})">${wStatus}</span>
                             <span class="tag pay-${pStatus}" onclick="togglePay(${job.id})">${pStatus}</span>
@@ -192,7 +207,36 @@
                 </div>
             `;
         }).join('');
+
+        // 初始化拖拽功能 (僅在顯示「全部」時啟用拖拽，避免排序混亂)
+        if (currentFilter === '全部') {
+            new Sortable(list, {
+                animation: 150,
+                ghostClass: 'sortable-ghost',
+                delay: 400, // 長按 400ms 觸發拖拽，防止與滑動衝突
+                delayOnTouchOnly: true,
+                onEnd: function() {
+                    const newOrder = Array.from(list.querySelectorAll('.job-container')).map(el => parseInt(el.getAttribute('data-id')));
+                    jobs.sort((a, b) => newOrder.indexOf(a.id) - newOrder.indexOf(b.id));
+                    localStorage.setItem('f-jobs-v6', JSON.stringify(jobs));
+                }
+            });
+        }
     }
+
+    // 點擊變為可編輯輸入框
+    function makeEditable(el, id) {
+        const currentName = el.innerText;
+        const input = document.createElement('input');
+        input.value = currentName;
+        input.className = 'edit-input';
+        input.onblur = () => editTitle(id, input.value);
+        input.onkeypress = (e) => { if(e.key === 'Enter') editTitle(id, input.value); };
+        el.innerHTML = '';
+        el.appendChild(input);
+        input.focus();
+    }
+
     render();
 </script>
 
