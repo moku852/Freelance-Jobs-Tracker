@@ -3,20 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Freelance Auto-Sort Tracker</title>
+    <title>Freelance Tracker Pro</title>
     <style>
         :root {
-            --bg: #f2f2f7; --card: #ffffff; --text: #1c1c1e;
-            --border: #d1d1d6; --primary: #007aff;
+            --bg: #000000; --card: #1c1c1e; --text: #ffffff;
+            --border: #38383a; --primary: #0a84ff;
             --status-todo: #636366; --status-pending: #af52de;
             --status-done: #34c759;
-        }
-
-        @media (prefers-color-scheme: dark) {
-            :root {
-                --bg: #000000; --card: #1c1c1e; --text: #ffffff;
-                --border: #38383a; --primary: #0a84ff;
-            }
         }
 
         body { 
@@ -26,6 +19,10 @@
         
         .container { max-width: 600px; margin: 0 auto; }
 
+        .header-section { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        h2 { margin: 0; }
+
+        /* 篩選列 */
         .filter-bar { 
             display: flex; gap: 8px; overflow-x: auto; padding: 10px 0; 
             position: sticky; top: 0; background: var(--bg); z-index: 100;
@@ -35,17 +32,38 @@
 
         .filter-btn { 
             white-space: nowrap; padding: 8px 16px; border-radius: 20px; 
-            background: var(--card); border: 1px solid var(--border); 
+            background: #2c2c2e; border: 1px solid var(--border); 
             color: var(--text); font-size: 14px; cursor: pointer;
         }
-        .filter-btn.active { background: var(--primary); color: white; border-color: var(--primary); }
+        .filter-btn.active { background: var(--primary); border-color: var(--primary); }
 
-        .add-section { background: var(--card); padding: 15px; border-radius: 15px; margin: 10px 0 20px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
-        input.new-job { width: 100%; padding: 12px; border-radius: 10px; border: 1px solid var(--border); background: var(--bg); color: var(--text); box-sizing: border-box; font-size: 16px; margin-bottom: 10px; }
-        button.add-btn { width: 100%; padding: 12px; border-radius: 10px; border: none; background: var(--primary); color: white; font-weight: bold; }
+        /* 新增項目按鈕 */
+        .add-main-btn {
+            background: var(--primary); color: white; border: none; padding: 10px 20px;
+            border-radius: 12px; font-weight: bold; font-size: 14px; cursor: pointer;
+        }
 
-        .job-container { position: relative; overflow: hidden; margin-bottom: 12px; border-radius: 15px; touch-action: pan-y; }
-        
+        /* 隱藏的輸入區域 (彈出式設計) */
+        .input-overlay {
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.8); z-index: 1000; align-items: center; justify-content: center;
+        }
+        .input-card {
+            background: #2c2c2e; padding: 25px; border-radius: 20px; width: 85%; max-width: 400px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        }
+        .input-card h3 { margin-top: 0; margin-bottom: 15px; }
+        .input-card input {
+            width: 100%; padding: 12px; margin-bottom: 15px; border-radius: 10px;
+            border: 1px solid var(--border); background: #1c1c1e; color: white; font-size: 16px; box-sizing: border-box;
+        }
+        .input-actions { display: flex; gap: 10px; }
+        .input-actions button { flex: 1; padding: 12px; border-radius: 10px; border: none; font-weight: bold; cursor: pointer; }
+        .btn-cancel { background: #48484a; color: white; }
+        .btn-confirm { background: var(--primary); color: white; }
+
+        /* Job Card 樣式 */
+        .job-container { position: relative; overflow: hidden; margin-bottom: 12px; border-radius: 15px; }
         .swipe-bg {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
             display: flex; align-items: center; padding: 0 20px; box-sizing: border-box;
@@ -57,18 +75,15 @@
         .job-card { 
             position: relative; background: var(--card); padding: 18px; 
             z-index: 2; transition: transform 0.2s ease-out;
-            display: flex; flex-direction: column; gap: 8px;
+            display: flex; flex-direction: column; gap: 10px;
             border-left: 6px solid var(--status-todo);
         }
 
-        .edit-input {
-            font-size: 18px; font-weight: 600; background: transparent;
-            border: 1px dashed var(--primary); color: var(--text);
-            width: 100%; padding: 2px 5px; border-radius: 4px; box-sizing: border-box;
-        }
+        .job-info { display: flex; flex-direction: column; }
+        .job-title { font-size: 18px; font-weight: 600; cursor: pointer; margin-bottom: 4px; }
+        .job-date { font-size: 13px; color: #8e8e93; }
 
-        .job-title { font-size: 18px; font-weight: 600; display: block; min-height: 24px; cursor: pointer; }
-        .tag-group { display: flex; gap: 8px; z-index: 10; }
+        .tag-group { display: flex; gap: 8px; }
         .tag { padding: 4px 12px; border-radius: 12px; font-size: 12px; font-weight: 500; cursor: pointer; }
         
         .status-未完成 { background: #636366; color: white; }
@@ -76,12 +91,17 @@
         .status-已完成 { background: #34c759; color: white; }
         .pay-未收錢 { border: 1px solid #ff9500; color: #ff9500; }
         .pay-已收錢 { background: #34c75922; color: #34c759; border: 1px solid #34c759; }
+
+        .edit-input { font-size: 18px; font-weight: 600; background: transparent; border: 1px dashed var(--primary); color: white; width: 100%; border-radius: 4px; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h2>Job Tracker ⚡️</h2>
+    <div class="header-section">
+        <h2>Job Tracker ⚡️</h2>
+        <button class="add-main-btn" onclick="openInput()">+ 新增項目</button>
+    </div>
 
     <div class="filter-bar">
         <button class="filter-btn active" onclick="setFilter('全部', this)">全部</button>
@@ -91,25 +111,42 @@
         <button class="filter-btn" onclick="setFilter('未收錢', this)">未收錢 ❌</button>
         <button class="filter-btn" onclick="setFilter('已收錢', this)">已收錢 ✅</button>
     </div>
-    
-    <div class="add-section">
-        <input type="text" id="jobName" class="new-job" placeholder="輸入 Job 名稱..." onkeypress="if(event.key==='Enter')addJob()">
-        <button class="add-btn" onclick="addJob()">新增項目</button>
-    </div>
 
     <div id="jobList"></div>
 </div>
 
+<div id="inputOverlay" class="input-overlay">
+    <div class="input-card">
+        <h3>新增 Job</h3>
+        <input type="text" id="jobName" placeholder="Job 名稱">
+        <label style="font-size: 13px; color: #8e8e93; margin-bottom: 5px; display: block;">拍攝日期：</label>
+        <input type="date" id="jobDate">
+        <div class="input-actions">
+            <button class="btn-cancel" onclick="closeInput()">取消</button>
+            <button class="btn-confirm" onclick="addJob()">確定新增</button>
+        </div>
+    </div>
+</div>
+
 <script>
-    let jobs = JSON.parse(localStorage.getItem('f-jobs-v7')) || [];
+    let jobs = JSON.parse(localStorage.getItem('f-jobs-v8')) || [];
     let currentFilter = '全部';
     const workStates = ["未完成", "待確認/修改", "已完成"];
     const payStates = ["未收錢", "已收錢"];
 
-    // 核心邏輯：根據名稱排序並儲存
+    // 預設今日日期
+    document.getElementById('jobDate').valueAsDate = new Date();
+
+    function openInput() { document.getElementById('inputOverlay').style.display = 'flex'; }
+    function closeInput() { document.getElementById('inputOverlay').style.display = 'none'; }
+
     function saveAndSort() {
-        jobs.sort((a, b) => a.name.localeCompare(b.name, 'zh-Hant'));
-        localStorage.setItem('f-jobs-v7', JSON.stringify(jobs));
+        // 排序邏輯：先排日期 (新到舊)，再排名字
+        jobs.sort((a, b) => {
+            if (b.date !== a.date) return b.date.localeCompare(a.date);
+            return a.name.localeCompare(b.name, 'zh-Hant');
+        });
+        localStorage.setItem('f-jobs-v8', JSON.stringify(jobs));
         render();
     }
 
@@ -121,19 +158,26 @@
     }
 
     function addJob() {
-        const input = document.getElementById('jobName');
-        if (!input.value) return;
-        jobs.unshift({ id: Date.now(), name: input.value, work: 0, pay: 0 });
-        input.value = '';
+        const nameInput = document.getElementById('jobName');
+        const dateInput = document.getElementById('jobDate');
+        if (!nameInput.value) return;
+        
+        jobs.unshift({ 
+            id: Date.now(), 
+            name: nameInput.value, 
+            date: dateInput.value,
+            work: 0, 
+            pay: 0 
+        });
+        
+        nameInput.value = '';
+        closeInput();
         saveAndSort();
     }
 
     function editTitle(id, newName) {
         const job = jobs.find(j => j.id === id);
-        if (job) {
-            job.name = newName;
-            saveAndSort(); // 修改名稱後重新排序
-        }
+        if (job) { job.name = newName; saveAndSort(); }
     }
 
     function toggleWork(id) {
@@ -170,19 +214,13 @@
         }
     }
 
-    // 點擊變為可編輯
     function makeEditable(el, id) {
         const currentName = el.innerText;
         const input = document.createElement('input');
         input.value = currentName;
         input.className = 'edit-input';
-        
-        // 防止點擊輸入框時觸發滑動或其他事件
-        input.onclick = (e) => e.stopPropagation();
-        
         input.onblur = () => editTitle(id, input.value);
         input.onkeypress = (e) => { if(e.key === 'Enter') editTitle(id, input.value); };
-        
         el.innerHTML = '';
         el.appendChild(input);
         input.focus();
@@ -211,7 +249,10 @@
                          ontouchstart="handleStart(event)"
                          ontouchmove="handleMove(event, this)"
                          ontouchend="handleEnd(event, ${job.id}, this)">
-                        <span class="job-title" onclick="makeEditable(this, ${job.id})">${job.name}</span>
+                        <div class="job-info">
+                            <span class="job-title" onclick="makeEditable(this, ${job.id})">${job.name}</span>
+                            <span class="job-date">📅 拍攝日期: ${job.date || '未設定'}</span>
+                        </div>
                         <div class="tag-group">
                             <span class="tag status-${wStatus.replace('/','-')}" onclick="toggleWork(${job.id})">${wStatus}</span>
                             <span class="tag pay-${pStatus}" onclick="togglePay(${job.id})">${pStatus}</span>
@@ -222,7 +263,6 @@
         }).join('');
     }
 
-    // 初始化讀取與排序
     saveAndSort();
 </script>
 
