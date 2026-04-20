@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Freelance Job Manager</title>
+    <style>
+        :root {
+            --bg: #f2f2f7; --card: #ffffff; --text: #1c1c1e;
+            --border: #d1d1d6; --primary: #007aff;
+            --status-todo: #8e8e93; --status-pending: #af52de;
+            --status-done: #34c759; --pay-no: #ff9500;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --bg: #000000; --card: #1c1c1e; --text: #ffffff;
+                --border: #38383a; --primary: #0a84ff;
+            }
+        }
+
+        body { font-family: -apple-system, system-ui; background: var(--bg); color: var(--text); padding: 15px; margin: 0; transition: background 0.3s; }
+        .container { max-width: 600px; margin: 0 auto; padding-bottom: 50px; }
+        
+        /* 頂部過濾器 */
+        .filter-bar { 
+            display: flex; gap: 8px; overflow-x: auto; padding: 10px 0; 
+            position: sticky; top: 0; background: var(--bg); z-index: 10;
+            scrollbar-width: none; /* Hide scrollbar for Firefox */
+        }
+        .filter-bar::-webkit-scrollbar { display: none; } /* Hide scrollbar for Chrome/Safari */
+
+        .filter-btn { 
+            white-space: nowrap; padding: 6px 14px; border-radius: 15px; 
+            background: var(--card); border: 1px solid var(--border); 
+            color: var(--text); font-size: 14px; cursor: pointer; 
+        }
+        .filter-btn.active { background: var(--primary); color: white; border-color: var(--primary); }
+
+        /* 輸入區 */
+        .add-section { background: var(--card); padding: 15px; border-radius: 15px; margin: 10px 0 20px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+        input { width: 100%; padding: 12px; border-radius: 10px; border: 1px solid var(--border); background: var(--bg); color: var(--text); box-sizing: border-box; font-size: 16px; margin-bottom: 10px; }
+        button.add-btn { width: 100%; padding: 12px; border-radius: 10px; border: none; background: var(--primary); color: white; font-weight: bold; font-size: 16px; }
+
+        /* 卡片列表 */
+        .job-card { background: var(--card); padding: 15px; border-radius: 15px; margin-bottom: 12px; border-left: 6px solid var(--status-todo); display: flex; flex-direction: column; gap: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+        .job-title { font-size: 18px; font-weight: 600; }
+        .tag-group { display: flex; flex-wrap: wrap; gap: 8px; }
+        .tag { padding: 5px 12px; border-radius: 20px; font-size: 13px; font-weight: 500; cursor: pointer; border: 1px solid transparent; }
+        
+        .status-未完成 { background: #636366; color: white; }
+        .status-待確認-修改 { background: #af52de; color: white; }
+        .status-已完成 { background: #34c759; color: white; }
+        .pay-未收錢 { border-color: #ff9500; color: #ff9500; }
+        .pay-已收錢 { background: #34c75922; color: #34c759; border-color: #34c759; }
+
+        .del-link { color: #ff3b30; font-size: 12px; text-decoration: none; align-self: flex-end; opacity: 0.6; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>My Jobs</h2>
+
+    <div class="filter-bar" id="filterBar">
+        <button class="filter-btn active" onclick="setFilter('全部', this)">全部</button>
+        <button class="filter-btn" onclick="setFilter('未完成', this)">未完成</button>
+        <button class="filter-btn" onclick="setFilter('待確認/修改', this)">待確認/修改</button>
+        <button class="filter-btn" onclick="setFilter('已完成', this)">已完成</button>
+        <button class="filter-btn" onclick="setFilter('未收錢', this)">未收錢 ❌</button>
+        <button class="filter-btn" onclick="setFilter('已收錢', this)">已收錢 ✅</button>
+    </div>
+    
+    <div class="add-section">
+        <input type="text" id="jobName" placeholder="輸入新 Job 名稱..." onkeypress="if(event.key==='Enter')addJob()">
+        <button class="add-btn" onclick="addJob()">新增 Job</button>
+    </div>
+
+    <div id="jobList"></div>
+</div>
+
+<script>
+    let jobs = JSON.parse(localStorage.getItem('f-jobs-v2')) || [];
+    let currentFilter = '全部';
+
+    const workStates = ["未完成", "待確認/修改", "已完成"];
+    const payStates = ["未收錢", "已收錢"];
+
+    function save() {
+        localStorage.setItem('f-jobs-v2', JSON.stringify(jobs));
+        render();
+    }
+
+    function setFilter(filter, btn) {
+        currentFilter = filter;
+        document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        render();
+    }
+
+    function addJob() {
+        const input = document.getElementById('jobName');
+        if (!input.value) return;
+        jobs.unshift({ id: Date.now(), name: input.value, work: 0, pay: 0 });
+        input.value = '';
+        save();
+    }
+
+    function toggleWork(id) {
+        const job = jobs.find(j => j.id === id);
+        job.work = (job.work + 1) % workStates.length;
+        save();
+    }
+
+    function togglePay(id) {
+        const job = jobs.find(j => j.id === id);
+        job.pay = (job.pay + 1) % payStates.length;
+        save();
+    }
+
+    function deleteJob(id) {
+        if(confirm('確定刪除？')) {
+            jobs = jobs.filter(j => j.id !== id);
+            save();
+        }
+    }
+
+    function render() {
+        const list = document.getElementById('jobList');
+        
+        // 過濾邏輯
+        const filteredJobs = jobs.filter(job => {
+            if (currentFilter === '全部') return true;
+            if (workStates.includes(currentFilter)) return workStates[job.work] === currentFilter;
+            if (payStates.includes(currentFilter)) return payStates[job.pay] === currentFilter;
+            return true;
+        });
+
+        list.innerHTML = filteredJobs.map(job => {
+            const wStatus = workStates[job.work];
+            const pStatus = payStates[job.pay];
+            const borderCol = job.work === 2 ? '#34c759' : (job.work === 1 ? '#af52de' : '#8e8e93');
+
+            return `
+                <div class="job-card" style="border-left-color: ${borderCol}">
+                    <span class="job-title">${job.name}</span>
+                    <div class="tag-group">
+                        <span class="tag status-${wStatus.replace('/','-')}" onclick="toggleWork(${job.id})">${wStatus}</span>
+                        <span class="tag pay-${pStatus}" onclick="togglePay(${job.id})">${pStatus}</span>
+                    </div>
+                    <a href="#" class="del-link" onclick="deleteJob(${job.id})">刪除</a>
+                </div>
+            `;
+        }).join('');
+        
+        if (filteredJobs.length === 0) {
+            list.innerHTML = `<p style="text-align:center; color:gray; margin-top:20px;">沒有屬於「${currentFilter}」的項目</p>`;
+        }
+    }
+
+    render();
+</script>
+
+</body>
+</html>
