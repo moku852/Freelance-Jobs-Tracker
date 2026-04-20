@@ -10,6 +10,7 @@
             --border: #38383a; --primary: #0a84ff;
             --status-todo: #636366; --status-pending: #af52de;
             --status-done: #34c759;
+            --danger: #ff3b30; /* 紅色刪除 */
         }
 
         body { 
@@ -22,7 +23,6 @@
         .header-section { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
         h2 { margin: 0; }
 
-        /* 篩選列 */
         .filter-bar { 
             display: flex; gap: 8px; overflow-x: auto; padding: 10px 0; 
             position: sticky; top: 0; background: var(--bg); z-index: 100;
@@ -37,40 +37,38 @@
         }
         .filter-btn.active { background: var(--primary); border-color: var(--primary); }
 
-        /* 新增項目按鈕 */
         .add-main-btn {
             background: var(--primary); color: white; border: none; padding: 10px 20px;
             border-radius: 12px; font-weight: bold; font-size: 14px; cursor: pointer;
         }
 
-        /* 隱藏的輸入區域 (彈出式設計) */
+        /* 彈出輸入層 */
         .input-overlay {
             display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(0,0,0,0.8); z-index: 1000; align-items: center; justify-content: center;
         }
         .input-card {
             background: #2c2c2e; padding: 25px; border-radius: 20px; width: 85%; max-width: 400px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
         }
-        .input-card h3 { margin-top: 0; margin-bottom: 15px; }
         .input-card input {
             width: 100%; padding: 12px; margin-bottom: 15px; border-radius: 10px;
             border: 1px solid var(--border); background: #1c1c1e; color: white; font-size: 16px; box-sizing: border-box;
         }
         .input-actions { display: flex; gap: 10px; }
-        .input-actions button { flex: 1; padding: 12px; border-radius: 10px; border: none; font-weight: bold; cursor: pointer; }
-        .btn-cancel { background: #48484a; color: white; }
-        .btn-confirm { background: var(--primary); color: white; }
+        .input-actions button { flex: 1; padding: 12px; border-radius: 10px; border: none; font-weight: bold; }
 
-        /* Job Card 樣式 */
+        /* 滑動容器與背景色 */
         .job-container { position: relative; overflow: hidden; margin-bottom: 12px; border-radius: 15px; }
         .swipe-bg {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
             display: flex; align-items: center; padding: 0 20px; box-sizing: border-box;
             font-weight: bold; color: white; font-size: 14px;
         }
-        .bg-delete { background: #ff3b30; justify-content: flex-start; }
-        .bg-next { background: #34c759; justify-content: flex-end; }
+        
+        /* 核心要求：右滑變紅色 (刪除) */
+        .bg-delete { background: var(--danger); justify-content: flex-start; } 
+        /* 左滑變綠色 (推進) */
+        .bg-next { background: var(--status-done); justify-content: flex-end; }
 
         .job-card { 
             position: relative; background: var(--card); padding: 18px; 
@@ -79,10 +77,8 @@
             border-left: 6px solid var(--status-todo);
         }
 
-        .job-info { display: flex; flex-direction: column; }
-        .job-title { font-size: 18px; font-weight: 600; cursor: pointer; margin-bottom: 4px; }
+        .job-title { font-size: 18px; font-weight: 600; cursor: pointer; }
         .job-date { font-size: 13px; color: #8e8e93; }
-
         .tag-group { display: flex; gap: 8px; }
         .tag { padding: 4px 12px; border-radius: 12px; font-size: 12px; font-weight: 500; cursor: pointer; }
         
@@ -117,36 +113,35 @@
 
 <div id="inputOverlay" class="input-overlay">
     <div class="input-card">
-        <h3>新增 Job</h3>
+        <h3 style="margin-top:0">新增 Job</h3>
         <input type="text" id="jobName" placeholder="Job 名稱">
         <label style="font-size: 13px; color: #8e8e93; margin-bottom: 5px; display: block;">拍攝日期：</label>
         <input type="date" id="jobDate">
         <div class="input-actions">
-            <button class="btn-cancel" onclick="closeInput()">取消</button>
-            <button class="btn-confirm" onclick="addJob()">確定新增</button>
+            <button style="background:#48484a; color:white" onclick="closeInput()">取消</button>
+            <button style="background:var(--primary); color:white" onclick="addJob()">確定新增</button>
         </div>
     </div>
 </div>
 
 <script>
-    let jobs = JSON.parse(localStorage.getItem('f-jobs-v8')) || [];
+    let jobs = JSON.parse(localStorage.getItem('f-jobs-v9')) || [];
     let currentFilter = '全部';
     const workStates = ["未完成", "待確認/修改", "已完成"];
     const payStates = ["未收錢", "已收錢"];
 
-    // 預設今日日期
     document.getElementById('jobDate').valueAsDate = new Date();
 
     function openInput() { document.getElementById('inputOverlay').style.display = 'flex'; }
     function closeInput() { document.getElementById('inputOverlay').style.display = 'none'; }
 
     function saveAndSort() {
-        // 排序邏輯：先排日期 (新到舊)，再排名字
+        // 排序：日期由新到舊，再按名字排列
         jobs.sort((a, b) => {
             if (b.date !== a.date) return b.date.localeCompare(a.date);
             return a.name.localeCompare(b.name, 'zh-Hant');
         });
-        localStorage.setItem('f-jobs-v8', JSON.stringify(jobs));
+        localStorage.setItem('f-jobs-v9', JSON.stringify(jobs));
         render();
     }
 
@@ -161,15 +156,7 @@
         const nameInput = document.getElementById('jobName');
         const dateInput = document.getElementById('jobDate');
         if (!nameInput.value) return;
-        
-        jobs.unshift({ 
-            id: Date.now(), 
-            name: nameInput.value, 
-            date: dateInput.value,
-            work: 0, 
-            pay: 0 
-        });
-        
+        jobs.unshift({ id: Date.now(), name: nameInput.value, date: dateInput.value, work: 0, pay: 0 });
         nameInput.value = '';
         closeInput();
         saveAndSort();
@@ -192,7 +179,7 @@
         saveAndSort();
     }
 
-    // 手勢操作
+    // 滑動邏輯
     let startX = 0;
     function handleStart(e) { startX = e.touches[0].clientX; }
     function handleMove(e, el) {
@@ -202,12 +189,13 @@
     function handleEnd(e, id, el) {
         let diff = e.changedTouches[0].clientX - startX;
         el.style.transform = `translateX(0px)`;
-        if (diff > 100) {
-            if(confirm('確定刪除？')) {
+        
+        if (diff > 100) { // 向右滑：刪除 (底色紅色)
+            if(confirm('確定刪除此項目？')) {
                 jobs = jobs.filter(j => j.id !== id);
                 saveAndSort();
             }
-        } else if (diff < -100) {
+        } else if (diff < -100) { // 向左滑：下一步 (底色綠色)
             const job = jobs.find(j => j.id === id);
             if (job.work < 2) job.work++; else job.pay = 1;
             saveAndSort();
@@ -249,9 +237,9 @@
                          ontouchstart="handleStart(event)"
                          ontouchmove="handleMove(event, this)"
                          ontouchend="handleEnd(event, ${job.id}, this)">
-                        <div class="job-info">
-                            <span class="job-title" onclick="makeEditable(this, ${job.id})">${job.name}</span>
-                            <span class="job-date">📅 拍攝日期: ${job.date || '未設定'}</span>
+                        <div onclick="makeEditable(this, ${job.id})">
+                            <div class="job-title">${job.name}</div>
+                            <div class="job-date">📅 拍攝日期: ${job.date || '未設定'}</div>
                         </div>
                         <div class="tag-group">
                             <span class="tag status-${wStatus.replace('/','-')}" onclick="toggleWork(${job.id})">${wStatus}</span>
