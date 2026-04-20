@@ -3,12 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Freelance Tracker Pro</title>
+    <title>Freelance Hybrid Tracker</title>
     <style>
         :root {
             --bg: #f2f2f7; --card: #ffffff; --text: #1c1c1e;
             --border: #d1d1d6; --primary: #007aff;
-            --status-todo: #8e8e93; --status-pending: #af52de;
+            --status-todo: #636366; --status-pending: #af52de;
             --status-done: #34c759;
         }
 
@@ -26,7 +26,6 @@
         
         .container { max-width: 600px; margin: 0 auto; }
 
-        /* 頂部篩選 - 補全所有標籤 */
         .filter-bar { 
             display: flex; gap: 8px; overflow-x: auto; padding: 10px 0; 
             position: sticky; top: 0; background: var(--bg); z-index: 100;
@@ -41,22 +40,19 @@
         }
         .filter-btn.active { background: var(--primary); color: white; border-color: var(--primary); }
 
-        /* 輸入區 */
         .add-section { background: var(--card); padding: 15px; border-radius: 15px; margin: 10px 0 20px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
         input { width: 100%; padding: 12px; border-radius: 10px; border: 1px solid var(--border); background: var(--bg); color: var(--text); box-sizing: border-box; font-size: 16px; margin-bottom: 10px; }
         button.add-btn { width: 100%; padding: 12px; border-radius: 10px; border: none; background: var(--primary); color: white; font-weight: bold; }
 
-        /* 滑動容器 */
         .job-container { position: relative; overflow: hidden; margin-bottom: 12px; border-radius: 15px; touch-action: pan-y; }
         
-        /* 背景色修正：右滑紅色(刪除)，左滑綠色(推進) */
         .swipe-bg {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
             display: flex; align-items: center; padding: 0 20px; box-sizing: border-box;
             font-weight: bold; color: white; font-size: 14px;
         }
-        .bg-delete { background: #ff3b30; justify-content: flex-start; } /* 右滑：刪除 */
-        .bg-next { background: #34c759; justify-content: flex-end; }   /* 左滑：下一步 */
+        .bg-delete { background: #ff3b30; justify-content: flex-start; }
+        .bg-next { background: #34c759; justify-content: flex-end; }
 
         .job-card { 
             position: relative; background: var(--card); padding: 18px; 
@@ -66,8 +62,8 @@
         }
 
         .job-title { font-size: 18px; font-weight: 600; }
-        .tag-group { display: flex; gap: 8px; }
-        .tag { padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: 500; }
+        .tag-group { display: flex; gap: 8px; z-index: 10; }
+        .tag { padding: 4px 12px; border-radius: 12px; font-size: 12px; font-weight: 500; cursor: pointer; }
         
         .status-未完成 { background: #636366; color: white; }
         .status-待確認-修改 { background: #af52de; color: white; }
@@ -99,13 +95,13 @@
 </div>
 
 <script>
-    let jobs = JSON.parse(localStorage.getItem('f-jobs-v3')) || [];
+    let jobs = JSON.parse(localStorage.getItem('f-jobs-v4')) || [];
     let currentFilter = '全部';
     const workStates = ["未完成", "待確認/修改", "已完成"];
     const payStates = ["未收錢", "已收錢"];
 
     function save() {
-        localStorage.setItem('f-jobs-v3', JSON.stringify(jobs));
+        localStorage.setItem('f-jobs-v4', JSON.stringify(jobs));
         render();
     }
 
@@ -124,32 +120,41 @@
         save();
     }
 
+    // 點擊切換功能
+    function toggleWork(id) {
+        const job = jobs.find(j => j.id === id);
+        job.work = (job.work + 1) % workStates.length;
+        save();
+    }
+
+    function togglePay(id) {
+        const job = jobs.find(j => j.id === id);
+        job.pay = (job.pay + 1) % payStates.length;
+        save();
+    }
+
+    // 手勢操作
     let startX = 0;
-
     function handleStart(e) { startX = e.touches[0].clientX; }
-
     function handleMove(e, el) {
         let diff = e.touches[0].clientX - startX;
         if (Math.abs(diff) < 150) el.style.transform = `translateX(${diff}px)`;
     }
-
     function handleEnd(e, id, el) {
         let diff = e.changedTouches[0].clientX - startX;
         el.style.transform = `translateX(0px)`;
 
-        if (diff > 100) { // 向右滑：刪除
-            if(confirm('確定刪除此項目？')) {
+        if (diff > 100) { // 右滑刪除
+            if(confirm('確定刪除？')) {
                 jobs = jobs.filter(j => j.id !== id);
                 save();
             }
-        } else if (diff < -100) { // 向左滑：推進階段
+        } else if (diff < -100) { // 左滑推進
             const job = jobs.find(j => j.id === id);
             if (job.work < 2) {
-                // 如果仲未到「已完成」，就跳去下一個工作階段
                 job.work++;
             } else {
-                // 如果已經係「已完成」，向左撥就轉做「已收錢」
-                job.pay = 1; 
+                job.pay = 1;
             }
             save();
         }
@@ -167,7 +172,7 @@
         list.innerHTML = filtered.map(job => {
             const wStatus = workStates[job.work];
             const pStatus = payStates[job.pay];
-            const borderCol = job.work === 2 ? '#34c759' : (job.work === 1 ? '#af52de' : '#8e8e93');
+            const borderCol = job.work === 2 ? '#34c759' : (job.work === 1 ? '#af52de' : '#636366');
 
             return `
                 <div class="job-container">
@@ -180,8 +185,8 @@
                          ontouchend="handleEnd(event, ${job.id}, this)">
                         <span class="job-title">${job.name}</span>
                         <div class="tag-group">
-                            <span class="tag status-${wStatus.replace('/','-')}">${wStatus}</span>
-                            <span class="tag pay-${pStatus}">${pStatus}</span>
+                            <span class="tag status-${wStatus.replace('/','-')}" onclick="toggleWork(${job.id})">${wStatus}</span>
+                            <span class="tag pay-${pStatus}" onclick="togglePay(${job.id})">${pStatus}</span>
                         </div>
                     </div>
                 </div>
